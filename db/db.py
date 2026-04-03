@@ -34,26 +34,37 @@ def user_register(conn, user_name, user_password, avatar_url=None):
     conn.commit()
     return user_id
 
-#Добавление фильма в планы
-def add_film_to_planned(conn, user_id, film_id):
+#Добавление фильма в список. True если добавился, False если фильм был в другом списке и просто его статус поменялся
+def add_film_to_list(conn, user_id, film_id, status):
     with conn.cursor() as cur:
-        query = """INSERT INTO users_schema.user_movies (user_id, film_id, status) 
-        VALUES (%s, %s, 'planned')
-        ON CONFLICT (user_id, film_id) DO NOTHING
-        RETURNING user_id;"""
-        cur.execute(query, (user_id, film_id))
-        result = cur.fetchone()
+        query = """
+        INSERT INTO users_schema.user_movies (user_id, film_id, status)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id, film_id) 
+        DO UPDATE SET status = EXCLUDED.status
+        RETURNING xmax = 0 AS inserted;"""
+        cur.execute(query, (user_id, film_id, status))
+        inserted = cur.fetchone()[0]
         conn.commit()
-        return bool(result)
+        return inserted
 
-#Словарь из названий фильмов, которые в планах у пользователя
-def get_users_planned_films(conn, user_id):
+#Словарь из названий фильмов, которые в списке у пользователя, список передается через status
+def get_films_from_users_list(conn, user_id, status):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         query = """SELECT f.film_id, f.title FROM users_schema.user_movies um
         JOIN public.film f ON f.film_id = um.film_id
-        WHERE um.user_id = %s AND um.status = 'planned';"""
-        cur.execute(query, (user_id,))
+        WHERE um.user_id = %s AND um.status = %s;"""
+        cur.execute(query, (user_id, status))
         films = cur.fetchall()
     return films
 
+#Удаление фильма из списка. Возвращает количество удаленных строк. 1 - успешно
+def remove_film_from_list(conn, user_id, film_id, status):
+    with conn.cursor() as cur:
+        query = """DELETE FROM users_schema.user_movies 
+        WHERE user_id = %s AND film_id = %s AND status = %s;"""
+        cur.execute(query, (user_id, film_id, status))
+        deleted_rows = cur.rowcount
+        conn.commit()
+        return deleted_rows
 
