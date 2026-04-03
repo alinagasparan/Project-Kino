@@ -12,6 +12,7 @@ print(db.add_film_to_list(conn, 3, 133, "watched"))
 print(db.get_films_from_users_list(conn, 3, "watched"))
 print(db.remove_film_from_list(conn, 3, 133, "watched"))
 print(db.get_films_from_users_list(conn, 3, "watched"))
-
+print(db.search_film_by_name(conn, "CHAMBER"))
+print(db.search_film_with_filters(conn, "chamber", sort_by="released_year"))
 cur.close()
 conn.close()
