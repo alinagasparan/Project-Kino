@@ -4,7 +4,6 @@ from assets.styles import apply_styles
 # Окно определенного фильма/сериала(Вся информация о нем)
 
 st.set_page_config(page_title="Details", layout="wide")
-apply_styles()
 
 movie_name = st.session_state.get("selected_movie", "Не выбрано")
 

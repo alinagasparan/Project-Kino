@@ -3,8 +3,7 @@ from assets.styles import apply_styles
 
 # Окно помощника (работа с ML)
 
-st.set_page_config(page_title="Cinemind Assistant", layout="wide")
-apply_styles()
+st.set_page_config(page_title="Assistant", layout="wide")
 
 st.title("🤖 Твой кино-бро")
 st.caption("Помощник Cinemind на связи. Готов обсудить кино!")
@@ -31,7 +30,3 @@ if prompt := st.chat_input("Напиши свои предпочтения..."):
         st.markdown(response)
     
     st.session_state.messages.append({"role": "assistant", "content": response})
-
-with st.sidebar:
-    st.markdown("### О помощнике")
-    st.info("Кино-кот использует ML для анализа твоих предпочтений. (В разработке)")

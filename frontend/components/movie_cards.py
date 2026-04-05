@@ -4,7 +4,7 @@ def render_movie_card(title, img_url, genre, year):
     """
     Функция создает HTML-структуру карточки.
     Все сложные стили (высота, цвета, тени) подтянутся автоматически 
-    из класса 'movie-card', который мы прописали в styles.py.
+    из класса 'movie-card', который прописали в styles.py.
     """
     st.markdown(f'''
         <div class="movie-card">

@@ -5,103 +5,165 @@ def apply_styles():
     
     style_html = """
     <style>
-
-        /* Полностью скрываем сайдбар и кнопку его открытия */
+        /* Скрываем сайдбар */
         [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {
             display: none !important;
         }
 
-        /* Убираем лишние отступы сверху, чтобы шапка была вплотную */
-        .stAppHeader {
-            display: none;
-        }
-        
-        /* Шапка сайта */
-        .nav-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 70px;
-            background-color: #1a1a1a;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 40px;
-            z-index: 1000;
-            border-bottom: 2px solid #e50914; /* Красная линия в стиле онлайн-кинотеатра */
+        /* Убираем отступ сверху */
+        .block-container {
+            padding-top: 0rem;
         }
 
-        .main-content {
-            margin-top: 100px;
+        /* Убираем у всех */
+        [data-testid="stHorizontalBlock"] {
+            background-color: transparent !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
         }
 
+        /* Шапка  */
+        .st-key-navbar [data-testid="stHorizontalBlock"] {
+            background-color: #060407 !important;
+            padding: 10px 30px !important;
+            border-radius: 16px !important;
+            border-bottom: 2px solid #610f2e !important;
+            align-items: center !important;
+        }
+        /* Фон за карточками */
+        .st-key-premieres,
+        .st-key-catalog {
+            background-color: #060407 !important;
+            padding: 20px !important;
+            border-radius: 16px !important;
+            border-bottom: 2px solid #610f2e !important;
+            margin-bottom: 16px !important;
+        }
         /* Анимация появления */
         .stApp {
             animation: fadeIn 0.8s ease-out;
         }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Стиль карточки фильма */
+        /* Минимальная ширина колонок */
+        [data-testid="stColumn"] {
+            min-width: 0 !important;
+        }
+
+        /* Карточка фильма */
         .movie-card {
-            background: #1f2937;
+            background: #1e223b;
             border-radius: 10px;
-            padding: 15px;
+            padding: 10px;
             border: 1px solid rgba(255,255,255,0.1);
             transition: 0.3s ease;
             text-align: center;
             display: flex;
             flex-direction: column;
-            height: 520px;
-            margin-bottom: 25px;
-        }
-
-        .movie-card:hover {
-            transform: translateY(-5px);
-            border-color: #e50914;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        }
-
-        .movie-card img {
-            width: 100%;
-            height: 350px;
-            object-fit: cover; 
-            border-radius: 5px;
+            justify-content: flex-start;
+            height: auto;
+            overflow: hidden;
             margin-bottom: 10px;
         }
-
-        /* Заголовок */
+        .movie-card:hover {
+            transform: translateY(-5px);
+            border-color: #a20e47;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+        .movie-card img {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
         .movie-card h4 {
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             line-height: 1.3;
-            height: 3.9em;
+            height: 2.6em;
             overflow: hidden;
             display: -webkit-box;
-            -webkit-line-clamp: 3;
+            -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            margin: 5px 0;
+            margin: 4px 0;
             color: #ffffff;
+            word-break: break-word;
         }
 
-        /* Кастомизация стандартных кнопок Streamlit */
+        /* Кнопки Streamlit */
         div.stButton > button {
-            background-color: #e50914 !important;
+            background-color: #610f2e !important;
             color: white !important;
             border-radius: 8px !important;
             border: none !important;
             transition: 0.2s;
         }
-        
         div.stButton > button:hover {
-            background-color: #ff0f1a !important;
+            background-color: #a20e47 !important;
             transform: scale(1.02);
         }
-        
+
+        /* Кот-помощник фиксированный */
+        .mascot-container {
+            position: fixed;
+            bottom: 0px;
+            left: 10px;
+            z-index: 9999;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .mascot-container:hover {
+            transform: scale(1.1);
+        }
     </style>
     """
     
     st.markdown(style_html, unsafe_allow_html=True)
+
+def filter_panel():
+    st.markdown("""
+        <div style="background:#242330; padding:10px 16px; margin-bottom: 5px;">
+            <span style="color:#ffffff; font-weight:500; font-size:14px; letter-spacing:1px;">ТИП</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    film = st.checkbox("Фильм")
+    serial = st.checkbox("TV Сериал")
+
+    st.markdown("""
+        <div style="background:#242330; padding:10px 16px; margin-top:16px; margin-bottom: 5px;">
+            <span style="color:#ffffff; font-weight:500; font-size:14px; letter-spacing:1px;">ЖАНР</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    fantastika = st.checkbox("Фантастика")
+    boevik = st.checkbox("Боевик")
+    comedy = st.checkbox("Комедия")
+    drama = st.checkbox("Драма")
+    horror = st.checkbox("Ужасы")
+    mult = st.checkbox("Мультфильмы")
+
+    st.markdown("""
+        <div style="background:#242330; padding:10px 16px; margin-top:16px; margin-bottom: 5px;">
+            <span style="color:#ffffff; font-weight:500; font-size:14px; letter-spacing:1px;">СОРТИРОВКА</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    sort_by = st.radio(
+        label="",
+        options=["По рейтингу", "По популярности", "По алфавиту", "По дате выхода"],
+        label_visibility="collapsed"
+    )
+
+    film_types = [t for t, v in [("Фильм", film), ("TV Сериал", serial)] if v]
+    genres = [g for g, v in [
+        ("Фантастика", fantastika), ("Боевик", boevik), ("Комедия", comedy),
+        ("Драма", drama), ("Ужасы", horror), ("Мультфильмы", mult)
+    ] if v]
+
+    return film_types, genres, sort_by

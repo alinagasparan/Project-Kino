@@ -4,7 +4,6 @@ from assets.styles import apply_styles
 # Окно профиля пользователя(Все его данные, Список его кино, БД)
 
 st.set_page_config(page_title="Profile", layout="wide")
-apply_styles()
 
 col1, col2 = st.columns([1, 2])
 
