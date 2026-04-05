@@ -30,6 +30,7 @@ def apply_styles():
             border-bottom: 2px solid #610f2e !important;
             align-items: center !important;
         }
+
         /* Фон за карточками */
         .st-key-premieres,
         .st-key-catalog {
@@ -39,6 +40,7 @@ def apply_styles():
             border-bottom: 2px solid #610f2e !important;
             margin-bottom: 16px !important;
         }
+
         /* Анимация появления */
         .stApp {
             animation: fadeIn 0.8s ease-out;
@@ -120,6 +122,45 @@ def apply_styles():
         .mascot-container:hover {
             transform: scale(1.1);
         }
+
+        /* Вход рег */
+        .st-key-auth_form {
+            background-color: #060407 !important;
+            padding: 30px !important;
+            border-radius: 16px !important;
+            border: 1px solid #610f2e !important;
+            max-width: 500px !important;
+            margin: 0 auto !important;
+        }
+
+        /* Кнопки переключения */
+        .st-key-btn_login button,
+        .st-key-btn_register button {
+            background-color: transparent !important;
+            border: 1px solid #610f2e !important;
+            color: #e2e8f0 !important;
+            font-size: 15px !important;
+            padding: 8px !important;
+            border-radius: 10px !important;
+            width: 150px;  
+        }
+        .st-key-btn_login button{
+            position: fixed;
+            bottom: 10px;
+            left: 20px;
+        }
+        .st-key-btn_register button{
+            position: fixed;
+            bottom: 10px;
+            left: 180px;
+        }
+
+        .st-key-btn_login button:hover,
+        .st-key-btn_register button:hover {
+            background-color: #610f2e !important;
+            color: #ffffff !important;
+        }
+    
     </style>
     """
     

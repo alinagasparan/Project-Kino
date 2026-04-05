@@ -11,12 +11,13 @@ catalog = st.Page("pages/02_Catalog.py", title="Каталог")
 assistant = st.Page("pages/03_Assistant.py", title="Ассистент")
 profile = st.Page("pages/04_Profile.py", title="Профиль")
 details = st.Page("pages/05_Details.py", title="Детали")
-pg = st.navigation([home, catalog, assistant, profile, details], position="hidden")
+auth = st.Page("pages/06_Auth.py", title="Войти")
+pg = st.navigation([home, catalog, assistant, auth, profile, details], position="hidden")
 
 # Шапка
 st.title("🎬 Cinemind 🎬")
 with st.container(key="navbar"):
-    col1, col2, col3 = st.columns([1.5, 5, 1])
+    col1, col2, col3 = st.columns([1.5, 5, 0.7])
     
     with col1:
         with st.popover("📂 Меню навигации"):
@@ -30,6 +31,7 @@ with st.container(key="navbar"):
         search_query = st.text_input("", placeholder="Поиск фильма по названию...  |  Например: Дюна", label_visibility="collapsed")
 
     with col3:
-        st.button("Профиль")
+        if st.button("Войти"):
+            st.switch_page("pages/06_Auth.py")
 
 pg.run()
