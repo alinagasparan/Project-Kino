@@ -44,6 +44,20 @@ def user_register(conn, user_name, user_password, avatar_url=None):
         print("Username already exists")
         return None
 
+#Вход в систему
+def user_login(conn, nickname, password):
+    with conn.cursor() as cur:
+        query = """SELECT user_name, user_password 
+        FROM users_schema.users
+        WHERE LOWER(user_name) = LOWER(%s);"""
+        cur.execute(query, (nickname,))
+        user = cur.fetchone()
+        if user is None:
+            return False
+        if user[1] == password:
+            return True
+        return False
+
 #Добавление фильма в список. True если добавился, False если фильм был в другом списке и просто его статус поменялся
 def add_film_to_list(conn, user_id, film_id, status_id):
     with conn.cursor() as cur:
@@ -87,6 +101,16 @@ def search_film_by_name(conn, film_name):
         films = cur.fetchall()
         conn.commit()
         return films
+
+#Информация по фильму
+def get_film_info(conn, film_id):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        query = """ SELECT title, description, release_year, rating 
+        FROM public.film WHERE film_id = %s;"""
+        cur.execute(query, (film_id,))
+        film = cur.fetchone()
+        return film
+
 
 #Фильтры для поиска. Название, жанр, актёр, год выпуска. + Сортировка по году, названию, возрастному ограничению
 def search_film_with_filters(
