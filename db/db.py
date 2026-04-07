@@ -59,15 +59,15 @@ def user_login(conn, nickname, password):
         return False
 
 #Добавление фильма в список. True если добавился, False если фильм был в другом списке и просто его статус поменялся
-def add_film_to_list(conn, user_id, film_id, status_id):
+def add_film_to_list(conn, user_id, movie_id, status_id):
     with conn.cursor() as cur:
         query = """
-        INSERT INTO users_schema.user_movies (user_id, film_id, status_id)
+        INSERT INTO users_schema.user_movies (user_id, movie_id, status_id)
         VALUES (%s, %s, %s)
-        ON CONFLICT (user_id, film_id) 
+        ON CONFLICT (user_id, movie_id) 
         DO UPDATE SET status_id = EXCLUDED.status_id
         RETURNING xmax = 0 AS inserted;"""
-        cur.execute(query, (user_id, film_id, status_id))
+        cur.execute(query, (user_id, movie_id, status_id))
         inserted = cur.fetchone()[0]
         conn.commit()
         return inserted
@@ -75,19 +75,19 @@ def add_film_to_list(conn, user_id, film_id, status_id):
 #Словарь из названий фильмов, которые в списке у пользователя, список передается через status
 def get_films_from_users_list(conn, user_id, status_id):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        query = """SELECT f.film_id, f.title FROM users_schema.user_movies um
-        JOIN public.film f ON f.film_id = um.film_id
+        query = """SELECT f.movie_id, f.title FROM users_schema.user_movies um
+        JOIN public.movies f ON f.movie_id = um.movie_id
         WHERE um.user_id = %s AND um.status_id = %s;"""
         cur.execute(query, (user_id, status_id))
         films = cur.fetchall()
     return films
 
 #Удаление фильма из списка. Возвращает количество удаленных строк. 1 - успешно
-def remove_film_from_list(conn, user_id, film_id, status_id):
+def remove_film_from_list(conn, user_id, movie_id, status_id):
     with conn.cursor() as cur:
         query = """DELETE FROM users_schema.user_movies 
-        WHERE user_id = %s AND film_id = %s AND status_id = %s;"""
-        cur.execute(query, (user_id, film_id, status_id))
+        WHERE user_id = %s AND movie_id = %s AND status_id = %s;"""
+        cur.execute(query, (user_id, movie_id, status_id))
         deleted_rows = cur.rowcount
         conn.commit()
         return deleted_rows
@@ -95,7 +95,7 @@ def remove_film_from_list(conn, user_id, film_id, status_id):
 #Поиск фильма по названию. Возвращает словарь из id фильма и названия
 def search_film_by_name(conn, film_name):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        query = """SELECT film_id, title FROM public.film 
+        query = """SELECT film_id, title FROM public.movies 
         WHERE LOWER(title) LIKE LOWER(%s);"""
         cur.execute(query, (f"%{film_name}%",))
         films = cur.fetchall()
@@ -103,11 +103,25 @@ def search_film_by_name(conn, film_name):
         return films
 
 #Информация по фильму
-def get_film_info(conn, film_id):
+def get_film_info(conn, movie_id):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        query = """ SELECT title, description, release_year, rating 
-        FROM public.film WHERE film_id = %s;"""
-        cur.execute(query, (film_id,))
+        query = """ SELECT 
+            m.title,
+            m.overview AS description,
+            m.release_year,
+            m.imdb_rating,
+            d.name AS director,
+            STRING_AGG(DISTINCT g.genre_name, ', ') AS categories,
+            STRING_AGG(DISTINCT a.name, ', ') AS actors
+        FROM Movies m
+        LEFT JOIN Directors d ON m.director_id = d.director_id
+        LEFT JOIN Movie_Genres mg ON m.movie_id = mg.movie_id
+        LEFT JOIN Genres g ON mg.genre_id = g.genre_id
+        LEFT JOIN Movie_Actors ma ON m.movie_id = ma.movie_id
+        LEFT JOIN Actors a ON ma.actor_id = a.actor_id
+        WHERE m.movie_id = %s
+        GROUP BY m.title, m.overview, m.release_year, m.imdb_rating, d.name;"""
+        cur.execute(query, (movie_id,))
         film = cur.fetchone()
         return film
 
@@ -119,49 +133,46 @@ def search_film_with_filters(
         genre=None,
         actor=None,
         year=None,
-        sort_by=None,  # "year", "rating", "title"
-        sort_order="asc"  # "asc" или "desc"
+        sort_by=None,
+        sort_order="asc"
 ):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         query = """
         SELECT DISTINCT 
-            f.film_id, 
-            f.title, 
-            f.release_year, 
-            f.rating
-        FROM public.film f
-        LEFT JOIN public.film_category fc ON f.film_id = fc.film_id
-        LEFT JOIN public.category c ON fc.category_id = c.category_id
-        LEFT JOIN public.film_actor fa ON f.film_id = fa.film_id
-        LEFT JOIN public.actor a ON fa.actor_id = a.actor_id
+            m.movie_id, 
+            m.title, 
+            m.release_year, 
+            m.imdb_rating AS rating,
+            m.certificate
+        FROM Movies m
+        LEFT JOIN Movie_Genres mg ON m.movie_id = mg.movie_id
+        LEFT JOIN Genres g ON mg.genre_id = g.genre_id
+        LEFT JOIN Movie_Actors ma ON m.movie_id = ma.movie_id
+        LEFT JOIN Actors a ON ma.actor_id = a.actor_id
         WHERE 1=1
         """
         params = []
+
         if title:
-            query += " AND LOWER(f.title) LIKE LOWER(%s)"
+            query += " AND m.title ILIKE %s"
             params.append(f"%{title}%")
 
         if genre:
-            query += " AND LOWER(c.name) = LOWER(%s)"
+            query += " AND g.genre_name ILIKE %s"
             params.append(genre)
 
         if actor:
-            query += """
-            AND (
-                LOWER(a.first_name) LIKE LOWER(%s) 
-                OR LOWER(a.last_name) LIKE LOWER(%s)
-            )
-            """
-            params.extend([f"%{actor}%", f"%{actor}%"])
+            query += " AND a.name ILIKE %s"
+            params.append(f"%{actor}%")
 
         if year:
-            query += " AND f.release_year = %s"
-            params.append(year)
+            query += " AND m.release_year = %s"
+            params.append(str(year))
 
         allowed_sort_fields = {
-            "year": "f.release_year",
-            "rating": "f.rating",
-            "title": "f.title"
+            "year": "m.release_year",
+            "rating": "m.imdb_rating",
+            "title": "m.title"
         }
 
         if sort_by in allowed_sort_fields:
@@ -169,4 +180,6 @@ def search_film_with_filters(
             query += f" ORDER BY {allowed_sort_fields[sort_by]} {order}"
 
         cur.execute(query, params)
+        # fetchall() вернет список словарей
         return cur.fetchall()
+
