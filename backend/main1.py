@@ -9,23 +9,25 @@ def get_films_by_search(text):
         if not text or text.strip() == "":
             return []
 
-        films=db.search_film_by_name(conn,text)
+        films = db.search_film_by_name(conn, text)
 
         result = []
         for film in films:
+            info = db.get_film_info(conn, film["film_id"])
+
             result.append({
                 "id": film["film_id"],
                 "title": film["title"],
-                "description": film.get("description"),
-                "year": film.get("release_year"),
-                "rating": film.get("rating")
+                "description": info["description"] if info else "",
+                "year": info["release_year"] if info else None,
+                "rating": info["rating"] if info else None
             })
 
         return result
+
     finally:
         conn.close()
-import db
-
+        
 def register_user(user_name, user_password, avatar_url=None):
     conn = db.get_connection()
     try:
@@ -42,19 +44,27 @@ def register_user(user_name, user_password, avatar_url=None):
 def check_user_login(username, password):
     conn = db.get_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, user_name FROM users_schema.users WHERE user_name=%s AND user_password=%s",
-                (username, password)
-            )
-            user = cur.fetchone()
-        return {"id": user[0], "username": user[1]} if user else None
+        success = db.user_login(conn, username, password)
+
+        if success:
+            return {
+                "username": username
+            }
+        else:
+            return None
     finally:
         conn.close()
-
+        
 def get_films_by_genre(genre_name):
     conn = db.get_connection()
     try:
         return db.search_film_with_filters()
+    finally:
+        conn.close()
+        
+def get_films_with_filters(title=None, genre=None, actor=None, year=None, sort_by=None, sort_order="asc"):
+    conn = db.get_connection()
+    try:
+        return db.search_film_with_filters(conn, title=title, genre=genre, actor=actor, year=year, sort_by=sort_by, sort_order=sort_order)
     finally:
         conn.close()
