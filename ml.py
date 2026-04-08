@@ -181,7 +181,6 @@ def process_query(query, df, all_genres, model, movie_embeddings, centroids, sto
     df_filtered = filter_by_keywords(df_filtered, keywords)
     
     if df_filtered.empty:
-        print("По вашему запросу фильмов не найдено. Ищем похожие...")
         df_filtered = df.copy()
     
     query_vec = model.encode([query])
