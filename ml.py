@@ -8,7 +8,8 @@ from nltk.corpus import stopwords
 nltk.download('stopwords')
 import sys
 import re
-
+import pickle 
+import os
 
 def initialize_nltk():
     nltk.download('stopwords', quiet=True)
@@ -60,7 +61,7 @@ def extract_genres(query, all_genres):
     return list(set(matched))
 
 #Загрузка файлов из бзд
-def dowonload_csv():
+def download_csv():
     df = pd.read_csv('./movies_posters.csv')
     df = df.dropna(subset=['synopsis'])
     return df
@@ -78,9 +79,26 @@ def prepare_genre(df):
         return df, all_genres
     return df, set()
 
-#Функция создания эмбеддинга
+def save_embeddings(movie_embeddings, df, filename='movie_embeddings.pkl'):
+    with open(filename, 'wb') as f:
+        pickle.dump(movie_embeddings, f)
+    df.to_pickle('movies_data.pkl')
+
+def load_embeddings(filename='movie_embeddings.pkl'):
+    if os.path.exists(filename) and os.path.exists('movies_data.pkl'):
+        with open(filename, 'rb') as f:
+            movie_embeddings = pickle.load(f)
+        df = pd.read_pickle('movies_data.pkl')
+        return df, movie_embeddings
+    return None, None
+
 def create_movie_embeddings(df, model):
-    movie_embeddings = model.encode(df['synopsis'].tolist(), show_progress_bar=True)
+    movie_embeddings = model.encode(
+        df['synopsis'].tolist(), 
+        show_progress_bar=True,
+        batch_size=64,
+        convert_to_numpy=True
+    )
     return movie_embeddings
 
 #Функция создания кластеров
@@ -207,10 +225,19 @@ def process_query(query, df, all_genres, model, movie_embeddings, centroids, sto
 
 
 stop_phrases = get_stop_phrases()
-df = dowonload_csv()
-df, all_genres = prepare_genre(df)
-model = initialize_model()
-movie_embeddings = create_movie_embeddings(df, model)
+df, movie_embeddings = load_embeddings()
+if df is None:
+  
+    df = download_csv()
+    df, all_genres = prepare_genre(df)
+    model = initialize_model()
+    movie_embeddings = create_movie_embeddings(df, model)
+    save_embeddings(movie_embeddings, df)  # Сохраняем для следующих запусков
+else:
+    _, all_genres = prepare_genre(df)
+    model = initialize_model()
+
+# Кластеризация (нужна всегда, так как центроиды не сохраняются)
 df, centroids = perform_clustering(df, movie_embeddings)
 
 
