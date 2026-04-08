@@ -171,6 +171,38 @@ def rank_movies(df, combined_indices, scores, query_genres, top_n=50):
     return sorted(final_results, key=lambda x: x[1], reverse=True)
 
 
+def process_query(query, df, all_genres, model, movie_embeddings, centroids, stop_phrases, ner_pipeline):
+    
+    keywords = extract_keywords(query, stop_phrases)
+    query_genres = extract_genres(query, all_genres)
+    entities = extract_entities(query, ner_pipeline)
+    
+    df_filtered = filter_by_genres(df, query_genres)
+    df_filtered = filter_by_keywords(df_filtered, keywords)
+    
+    if df_filtered.empty:
+        print("По вашему запросу фильмов не найдено. Ищем похожие...")
+        df_filtered = df.copy()
+    
+    query_vec = model.encode([query])
+    
+    best_clusters = get_relevant_clusters(query_vec, centroids)
+    
+    filtered_indices = df_filtered.index.tolist()
+    cluster_mask = df['cluster'].isin(best_clusters)
+    cluster_indices = df[cluster_mask].index.tolist()
+    
+    combined_indices = combine_indices(filtered_indices, cluster_indices)
+    
+    if len(combined_indices) == 0:
+        combined_indices = list(range(len(df)))
+    
+    combined_embeddings = movie_embeddings[combined_indices]
+    scores = cosine_similarity(query_vec, combined_embeddings)[0]
+    
+    ranked_results = rank_movies(df, combined_indices, scores, query_genres)
+    
+    return ranked_results
 
 
 
