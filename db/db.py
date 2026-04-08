@@ -88,7 +88,7 @@ def change_users_profile(conn, user_id, user_name=None, user_password=None, avat
             UPDATE users_schema.users
             SET {', '.join(fields)}
             WHERE id = %s;"""
-        cur.execute(query, (values, user_id))
+        cur.execute(query, (*values, user_id))
         conn.commit()
         cur.execute("""SELECT * FROM users_schema.users WHERE id = %s;""", (user_id,))
         return cur.fetchone()
@@ -219,3 +219,12 @@ def search_film_with_filters(
         # fetchall() вернет список словарей
         return cur.fetchall()
 
+def write_comment_on_film(conn, user_id, movie_id, text):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        query = """INSERT INTO users_schema.comments(user_id, movie_id, comm) 
+        VALUES (%s, %s, %s)
+        RETURNING id, user_id, movie_id, comm, created_at;"""
+        cur.execute(query, (user_id, movie_id, text))
+        conn.commit()
+        comment = cur.fetchone()
+        return comment
