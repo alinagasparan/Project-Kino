@@ -204,10 +204,7 @@ def get_relevant_clusters(query_vec, centroids):
     best_clusters = np.argsort(cluster_scores)[::-1][:n_clusters]
     return best_clusters
 
-# Объединяет индексы из фильтрации и кластеров
-def combine_indices(filtered_indices, cluster_indices, max_indices=100):
-    combined = list(dict.fromkeys(filtered_indices + cluster_indices))
-    return combined[:max_indices]
+
 
 # Вычисляет бонус за совпадение жанров
 def calculate_genre_bonus(row, query_genres):
@@ -413,7 +410,7 @@ def search_movies(query, top_k=10):
             genres = row.get('genres', row.get('Genre', 'N/A'))
             director = row.get('directors', row.get('Director', 'N/A'))
             cast = row.get('cast', row.get('Star1', row.get('actors', 'N/A')))
-            synopsis = row.get('synopsis', row.get('Overview', row.get('description', 'No description')))
+            synopsis = row.get('overview', row.get('Overview', row.get('description', 'No description')))
             poster_url = row.get('poster_url', row.get('Poster_Link', ''))
             
             results.append({
