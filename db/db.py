@@ -228,3 +228,59 @@ def write_comment_on_film(conn, user_id, movie_id, text):
         conn.commit()
         comment = cur.fetchone()
         return comment
+
+ADMIN_USERS = ["admin", "superuser"]
+
+def is_admin(conn, user_name):
+    with conn.cursor() as cur:
+        cur.execute("""SELECT id, user_name FROM users_schema.users
+                    WHERE LOWER(user_name) = LOWER(%s)""", (user_name,))
+        user = cur.fetchone()
+        if not user:
+            raise ValueError("Пользователь не найден")
+        if user["user_name"].lower() not in [u.lower() for u in ADMIN_USERS]:
+            raise PermissionError("Только администратор может добавлять фильмы")
+        return user["id"]
+
+def add_new_film(conn, user_name, url, title, genres, directors, cast, release_year, overview, poster_link):
+    with conn.cursor() as cur:
+        user_id = is_admin(conn, user_name)
+        cur.execute("""INSERT INTO public.Movies (url, title, release_year, synopsis, poster_link)
+                VALUES (%s, %s, %s, %s, %s) RETURNING movie_id""", (url, title, release_year, overview, poster_link))
+        movie_id = cur.fetchone()["movie_id"]
+        for director in directors:
+            cur.execute("""INSERT INTO public.directors (name) VALUES (%s)
+                    ON CONFLICT (name) DO NOTHING
+                    RETURNING director_id""", (director,))
+            result = cur.fetchone()
+            if result:
+                director_id = result["director_id"]
+            else:
+                cur.execute("""SELECT director_id FROM public.directors WHERE name = %s""", (director,))
+                director_id = cur.fetchone()["director_id"]
+            cur.execute("""INSERT INTO public.movie_directors (movie_id, director_id) VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING""", (movie_id, director_id))
+        for genre in genres:
+            cur.execute("""INSERT INTO public.genres (name) VALUES (%s)
+                        ON CONFLICT (name) DO NOTHING RETURNING genre_id""", (genre,))
+            result = cur.fetchone()
+            if result:
+                genre_id = result["genre_id"]
+            else:
+                cur.execute("""SELECT genre_id FROM public.genres WHERE name = %s""", (genre,))
+                genre_id = cur.fetchone()["genre_id"]
+            cur.execute("""INSERT INTO public.movie_genres (movie_id, genre_id) VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING""", (movie_id, genre_id))
+        for actor in cast:
+            cur.execute("""INSERT INTO public.actors (name) VALUES (%s)
+                    ON CONFLICT (name) DO NOTHING RETURNING actor_id""", (actor,))
+            result = cur.fetchone()
+            if result:
+                actor_id = result["actor_id"]
+            else:
+                cur.execute("""SELECT actor_id FROM public.actors WHERE name = %s""", (actor,))
+                actor_id = cur.fetchone()["actor_id"]
+            cur.execute("""INSERT INTO public.movie_cast (movie_id, actor_id) VALUES (%s, %s)
+                        ON CONFLICT DO NOTHING""", (movie_id, actor_id))
+        conn.commit()
+        return movie_id
