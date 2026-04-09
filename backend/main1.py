@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
-
+#import ml.ml
 import db
 def get_films_by_search(text):
     conn = db.get_connection()
@@ -166,16 +166,15 @@ def add_movie_to_user_list(user_id, movie_id, status):
 
     finally:
         conn.close()
-from ml import search_movies
-
+'''
 def chat_with_ml(message):
-   
+
     if not message or message.strip() == "":
         return []
 
     try:
-        results = search_movies(message, top_k=10)
-        
+        results = ml.ml.search_movies(message, top_k=10)
+
         response = []
         for film in results:
             response.append({
@@ -190,3 +189,103 @@ def chat_with_ml(message):
 
     except Exception as e:
         return [{"error": str(e)}]
+'''
+#фильмы для премьеры
+def get_latest_movies(limit=4):
+    conn = db.get_connection()
+    try:
+        films = db.search_film_with_filters(
+            conn,
+            sort_by="year",
+            sort_order="desc"
+        )
+
+        result = []
+        for film in films[:limit]:
+            info = db.get_film_info(conn, film["movie_id"])
+
+            result.append({
+                "id": film["movie_id"],
+                "title": film["title"],
+                "year": film.get("release_year"),
+                "poster": info.get("poster_link") if info else None
+            })
+
+        return result
+
+    finally:
+        conn.close()
+
+
+from psycopg2.extras import RealDictCursor
+
+'''
+def add_movie(conn, title, overview, release_year, poster_link, director_id):
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Проверяем, есть ли фильм с таким названием
+        cur.execute("SELECT movie_id FROM public.Movies WHERE LOWER(title) = LOWER(%s);", (title,))
+        existing = cur.fetchone()
+        if existing:
+            return {"error": "Фильм с таким названием уже существует", "movie_id": existing["movie_id"]}
+            
+        query = """
+        INSERT INTO public.Movies (title, overview, release_year, poster_link, director_id)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING movie_id, title, poster_link, release_year;
+        """
+        cur.execute(query, (title, overview, release_year, poster_link, director_id))
+        movie = cur.fetchone()
+        conn.commit()
+        return movie
+'''
+
+#    Возвращает список фильмов по одному жанру для фронта
+ #   в формате: id, title, poster, year
+def get_movies_by_genre_front(genre_name):
+
+    conn = db.get_connection()
+    try:
+        films = db.search_film_with_filters(conn, genre=genre_name)
+        result = []
+        for film in films:
+            info = db.get_film_info(conn, film["movie_id"])
+            result.append({
+                "id": film["movie_id"],
+                "title": film["title"],
+                "poster": info.get("poster_link") if info else None,
+            })
+        return result
+    finally:
+        conn.close()
+''' Возвращает все фильмы, отсортированные по алфавиту.
+    ascending=True -> A→Z, ascending=False -> Z→A '''
+def get_all_movies_sorted_by_title(ascending=True):
+    conn = db.get_connection()
+    try:
+        order_direction = "ASC" if ascending else "DESC"
+        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+            cur.execute(f"""
+                SELECT movie_id, title, poster_link, release_year
+                FROM public.movies
+                ORDER BY title {order_direction};
+            """)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+    #Возвращает все фильмы, отсортированные от новых к старым (по году выпуска, descending)
+    
+def get_all_movies_newest_first():
+    
+    conn = db.get_connection()
+    try:
+        with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT movie_id, title, poster_link, release_year
+                FROM public.movies
+                ORDER BY release_year DESC;
+            """)
+            return cur.fetchall()
+    finally:
+        conn.close()
