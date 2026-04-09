@@ -205,6 +205,20 @@ def search_film_with_filters(conn, title=None, genre=None, actor=None, year=None
         cur.execute(query, params)
         return cur.fetchall()
 
+def sort_films(conn, sort_by="year", ascending=True):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        if sort_by == "year":
+            order_field = ["release_year"]
+        elif sort_by == "title":
+            order_field = ["title"]
+        else:
+            raise ValueError("sort_by должен быть 'year' или 'title'")
+        order_direction = "ASC" if ascending else "DESC"
+        query = f"""SELECT movie_id, title, poster_url, release_year FROM public.Movies
+        ORDER BY {order_field} {order_direction};"""
+        cur.execute(query)
+        return cur.fetchall()
+
 def write_comment_on_film(conn, user_id, movie_id, text):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         query = """INSERT INTO users_schema.comments(user_id, movie_id, comm) 
