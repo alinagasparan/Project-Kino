@@ -11,27 +11,25 @@ import pickle
 import os
 from pathlib import Path
 
-# Настройка NLTK для избежания ошибок
 def setup_nltk():
     try:
-        # Создаем папку для данных NLTK в текущей директории
         nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
         if not os.path.exists(nltk_data_dir):
             os.makedirs(nltk_data_dir)
         nltk.data.path.append(nltk_data_dir)
+        
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
         return set(stopwords.words('english'))
     except Exception as e:
         print(f"Предупреждение: Не удалось загрузить stopwords: {e}")
         return set()
 
-# Инициализация стоп-слов
 try:
     stop_words = setup_nltk()
 except:
     stop_words = set()
 
-# Инициализирует Sentence Transformer модель (используем более легкую модель)
+# Инициализирует Sentence Transformer модель 
 def initialize_model():
     try:
         return SentenceTransformer('all-MiniLM-L6-v2')
@@ -61,7 +59,7 @@ def keyword_mask(text, keywords):
     if not keywords:
         return True
     text = text.lower()
-    return any(k in text for k in keywords)  
+    return any(k in text for k in keywords) 
 
 # Функция извлечения жанров из списка
 def extract_genres(query, all_genres):
@@ -69,32 +67,20 @@ def extract_genres(query, all_genres):
         return []
     
     query_lower = query.lower()
-    query_words = [w for w in query_lower.split() if len(w) > 2]  # только слова длиннее 2 букв
     matched = []
     
     for genre in all_genres:
         genre_lower = genre.lower()
-        
         if genre_lower in query_lower:
             matched.append(genre)
-            continue
-        
-        if query_lower in genre_lower:
+        elif any(word in genre_lower for word in query_lower.split() if len(word) > 3):
             matched.append(genre)
-            continue
-        
-        for q_word in query_words:
-            if q_word in genre_lower.split():
-                matched.append(genre)
-                break
-            elif q_word in genre_lower:
-                matched.append(genre)
-                break
     
     return list(set(matched))
 
 # Загрузка файлов с правильной обработкой пути
 def download_csv():
+    """Загрузка CSV файла с поиском в разных местах"""
     possible_paths = [
         './movies_posters.csv',
         './data/movies_posters.csv',
@@ -134,7 +120,7 @@ def prepare_genre(df):
     return df, set()
 
 def save_all(df, movie_embeddings, kmeans, filename='movie_data.pkl'):
-   
+    """Сохранение данных с проверкой"""
     try:
         with open(filename, 'wb') as f:
             pickle.dump({
@@ -172,7 +158,7 @@ def create_movie_embeddings(df, model):
 
 # Функция создания кластеров
 def perform_clustering(movie_embeddings):
-    k = min(50, len(movie_embeddings) // 10) 
+    k = min(50, len(movie_embeddings) // 10)  
     if k < 2:
         k = 2
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -184,22 +170,32 @@ def filter_by_genres(df, query_genres):
     if not query_genres or 'Genre_List' not in df.columns:
         return df.copy()
     
-    genre_mask = df['Genre_List'].apply(
-        lambda gs: any(
-            any(qg in g or g in qg for g in gs) 
-            for qg in query_genres
+    try:
+        genre_mask = df['Genre_List'].apply(
+            lambda gs: any(
+                any(qg.lower() in g.lower() or g.lower() in qg.lower() for g in gs) 
+                for qg in query_genres
+            ) if isinstance(gs, list) else False
         )
-    )
-    return df[genre_mask].copy() if genre_mask.any() else df.copy()
+        filtered = df[genre_mask] if genre_mask.any() else df
+        return filtered.copy()
+    except Exception as e:
+        print(f"Ошибка фильтрации по жанрам: {e}")
+        return df.copy()
 
 # Фильтрует фильмы по ключевым словам в описании
 def filter_by_keywords(df, keywords):
     if not keywords:
         return df.copy()
     
-    text_column = 'synopsis' if 'synopsis' in df.columns else 'Overview'
-    mask = df[text_column].apply(lambda x: keyword_mask(x, keywords))
-    return df[mask].copy() if mask.any() else df.copy()
+    try:
+        text_column = 'synopsis' if 'synopsis' in df.columns else 'Overview'
+        mask = df[text_column].apply(lambda x: keyword_mask(str(x), keywords) if pd.notna(x) else False)
+        filtered = df[mask] if mask.any() else df
+        return filtered.copy()
+    except Exception as e:
+        print(f"Ошибка фильтрации по ключевым словам: {e}")
+        return df.copy()
 
 # Функция нахождения наиболее подходящих кластеров
 def get_relevant_clusters(query_vec, centroids):
@@ -238,7 +234,7 @@ def calculate_rating_score(rating_str):
         match = re.search(r'(\d+\.?\d*)', str(rating_str))
         if match:
             rating = float(match.group(1))
-            return min(1.0, rating / 10.0)  
+            return min(1.0, rating / 10.0) 
     except:
         pass
     return 0
@@ -247,25 +243,49 @@ def calculate_rating_score(rating_str):
 def calculate_final_score(score, genre_bonus, rating_score):
     return score * 0.7 + genre_bonus + rating_score * 0.2
 
-# Ранжирует фильмы и возвращает топ результатов
-def rank_movies(df, combined_indices, scores, query_genres, top_n=50):
-    if len(scores) == 0:
+def combine_indices(filtered_indices, cluster_indices, max_indices=100):
+
+    filtered_indices = [i for i in filtered_indices if i is not None and i >= 0]
+    cluster_indices = [i for i in cluster_indices if i is not None and i >= 0]
+    
+    combined = list(dict.fromkeys(filtered_indices + cluster_indices))
+    
+    if len(combined) > max_indices:
+        combined = combined[:max_indices]
+    
+    return combined
+
+def rank_movies(df, positions, scores, query_genres, top_n=50):
+    """Безопасное ранжирование фильмов с проверкой границ"""
+    if len(scores) == 0 or len(positions) == 0:
         return []
     
-    top_n = min(top_n, len(scores))
-    top_positions = np.argsort(scores)[::-1][:top_n]
-    final_results = []
+    n_results = min(top_n, len(scores), len(positions))
+    if n_results == 0:
+        return []
     
-    for pos in top_positions:
-        original_idx = combined_indices[pos]
-        row = df.iloc[original_idx]
-        score = scores[pos]
+    top_indices = np.argsort(scores)[::-1][:n_results]
+    
+    final_results = []
+    for idx_in_scores in top_indices:
+        if idx_in_scores >= len(positions):
+            continue
+            
+        original_pos = positions[idx_in_scores]
+        
+        if original_pos >= len(df) or original_pos < 0:
+            continue
+            
+        row = df.iloc[original_pos]
+        score = scores[idx_in_scores]
         genre_bonus = calculate_genre_bonus(row, query_genres)
         rating_score = calculate_rating_score(row.get('rating', 'N/A'))
         final_score = calculate_final_score(score, genre_bonus, rating_score)
-        final_results.append((original_idx, final_score))
+        final_results.append((original_pos, final_score))
     
-    return sorted(final_results, key=lambda x: x[1], reverse=True)
+    final_results.sort(key=lambda x: x[1], reverse=True)
+    
+    return final_results[:top_n]
 
 def train_model():
     print("Загрузка данных...")
@@ -283,6 +303,7 @@ def train_model():
     print("Кластеризация...")
     kmeans = perform_clustering(movie_embeddings)
     
+    # Добавляем кластеры в DataFrame
     df['cluster'] = kmeans.labels_
     
     print("Сохранение обученной модели...")
@@ -318,8 +339,10 @@ def initialize_system():
     if kmeans is not None:
         centroids = kmeans.cluster_centers_
     stop_phrases = get_stop_phrases()
+    
     print("Система готова к работе!")
 
+# Функция для поиска фильмов
 def search_movies(query, top_k=10):
     global df, movie_embeddings, kmeans, all_genres, model, centroids, stop_phrases
     
@@ -336,32 +359,45 @@ def search_movies(query, top_k=10):
         df_filtered = filter_by_genres(df, query_genres)
         df_filtered = filter_by_keywords(df_filtered, keywords)
         
-        if df_filtered.empty:
-            df_filtered = df.copy()
+        if len(df_filtered) > 0:
+            filtered_positions = df_filtered.index.tolist()
+            filtered_positions = [p for p in filtered_positions if 0 <= p < len(movie_embeddings)]
+        else:
+            filtered_positions = list(range(len(df)))
+        
+        if not filtered_positions:
+            filtered_positions = list(range(len(df)))
+        
+        filtered_embeddings = movie_embeddings[filtered_positions]
         
         query_vec = model.encode([query])
         
-        if centroids is not None and len(centroids) > 0:
-            best_clusters = get_relevant_clusters(query_vec, centroids)
-            cluster_mask = df['cluster'].isin(best_clusters)
-            cluster_indices = df[cluster_mask].index.tolist()
-        else:
-            cluster_indices = []
+        cluster_positions = []
+        if centroids is not None and len(centroids) > 0 and kmeans is not None:
+            cluster_scores = cosine_similarity(query_vec, centroids)[0]
+            n_clusters = min(3, len(centroids))
+            best_clusters = np.argsort(cluster_scores)[::-1][:n_clusters]
+            
+            for cluster in best_clusters:
+                cluster_mask = df['cluster'] == cluster
+                cluster_positions.extend(df[cluster_mask].index.tolist())
+            
+            cluster_positions = list(set([p for p in cluster_positions if 0 <= p < len(movie_embeddings)]))
         
-        filtered_indices = df_filtered.index.tolist()
-        combined_indices = combine_indices(filtered_indices, cluster_indices)
+        combined_positions = list(set(filtered_positions + cluster_positions))
         
-        if len(combined_indices) == 0:
-            combined_indices = list(range(len(df)))
+        if len(combined_positions) > 500:
+            combined_positions = combined_positions[:500]
         
-        combined_embeddings = movie_embeddings[combined_indices]
+        combined_embeddings = movie_embeddings[combined_positions]
+        
         scores = cosine_similarity(query_vec, combined_embeddings)[0]
         
-        ranked_results = rank_movies(df, combined_indices, scores, query_genres, top_k)
+        ranked_results = rank_movies(df, combined_positions, scores, query_genres, top_k)
         
         results = []
-        for rank, (idx, score) in enumerate(ranked_results, 1):
-            row = df.iloc[idx]
+        for rank, (pos, score) in enumerate(ranked_results, 1):
+            row = df.iloc[pos]
             
             rating_value = row.get('rating', 'N/A')
             if pd.notna(rating_value) and rating_value != 'N/A':
@@ -372,12 +408,12 @@ def search_movies(query, top_k=10):
                 except:
                     pass
             
-            title = row.get('title', row.get('Series_Title', 'Unknown'))
-            year = row.get('year', row.get('Released_Year', 'N/A'))
+            title = row.get('title', row.get('Series_Title', row.get('original_title', 'Unknown')))
+            year = row.get('year', row.get('Released_Year', row.get('release_date', 'N/A')))
             genres = row.get('genres', row.get('Genre', 'N/A'))
             director = row.get('directors', row.get('Director', 'N/A'))
-            cast = row.get('cast', row.get('Star1', 'N/A'))
-            synopsis = row.get('synopsis', row.get('Overview', 'No description'))
+            cast = row.get('cast', row.get('Star1', row.get('actors', 'N/A')))
+            synopsis = row.get('synopsis', row.get('Overview', row.get('description', 'No description')))
             poster_url = row.get('poster_url', row.get('Poster_Link', ''))
             
             results.append({
@@ -388,7 +424,7 @@ def search_movies(query, top_k=10):
                 "rating": str(rating_value),
                 "director": str(director),
                 "cast": str(cast),
-                "overview": str(synopsis),
+                "synopsis": str(synopsis),
                 "poster_url": str(poster_url),
                 "score": float(score)
             })
@@ -397,7 +433,12 @@ def search_movies(query, top_k=10):
         
     except Exception as e:
         print(f"Ошибка при поиске: {e}")
+        import traceback
+        traceback.print_exc()
         return []
+        
+ 
 
+# Инициализируем систему при загрузке модуля
 initialize_system()
 
