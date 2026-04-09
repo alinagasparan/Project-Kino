@@ -1,6 +1,6 @@
 import streamlit as st
 from assets.styles import apply_styles
-from backend.main1 import get_films_by_search
+from backend.main1 import get_films_by_search, add_movie_to_user_list
 
 st.set_page_config(page_title="Детали фильма", layout="wide")
 apply_styles()
@@ -25,17 +25,18 @@ if movie_data:
     col_img, col_info = st.columns([1, 2], gap="large")
 
     with col_img:
-        #постер
-        poster_url = movie_data['poster_link'] if movie_data['poster_link'] else "https://via.placeholder.com/500x750?text=No+Poster"
-        
+        # постер
+        poster_url = movie_data['poster_link'] if movie_data[
+            'poster_link'] else "https://via.placeholder.com/500x750?text=No+Poster"
+
         st.image(poster_url, use_container_width=True)
-        
+
         # Плашка с рейтингом
-        st.markdown(f"""
-            <div style="background: #610f2e; padding: 15px; border-radius: 12px; text-align: center; margin-top: 10px;">
-                <span style="color: white; font-size: 1.2rem; font-weight: bold;">★ Рейтинг: {movie_data['imdb_rating']}</span>
-            </div>
-        """, unsafe_allow_html=True)
+        # st.markdown(f"""
+        # <div style="background: #610f2e; padding: 15px; border-radius: 12px; text-align: center; margin-top: 10px;">
+        # <span style="color: white; font-size: 1.2rem; font-weight: bold;">★ Рейтинг: {movie_data['imdb_rating']}</span>
+        #  </div>
+    #  """, unsafe_allow_html=True)
 
     with col_info:
         st.title(movie_data['title'])
@@ -45,14 +46,43 @@ if movie_data:
                 <span style="background: #1e223b; padding: 5px 15px; border-radius: 20px; color: #e2e8f0;">📅 {movie_data['year']}</span>
             </div>
         """, unsafe_allow_html=True)
-        
+
         st.subheader("Описание")
         st.write(movie_data['description'] if movie_data['description'] else "Описание отсутствует.")
-        
+
         st.divider()
-        
-    
-        st.selectbox("Статус", ["Не смотрел", "Запланировано", "Просмотрено"], key="status_select")
+
+        # Статус — только для авторизованных
+        if "user" in st.session_state and st.session_state.user:
+            from backend.main1 import add_movie_to_user_list
+
+            status = st.selectbox(
+                "Статус",
+                ["Не выбрано", "Запланировано", "Просмотрено"],
+                key="status_select"
+            )
+
+            if st.button("💾 Сохранить статус", key="save_status_btn"):
+                status_map = {
+                    "Запланировано": "planned",
+                    "Просмотрено": "seen",
+                }
+                status_key = status_map.get(status)
+
+                if status_key:
+                    result = add_movie_to_user_list(
+                        st.session_state.user["id"],
+                        movie_id,
+                        status_key
+                    )
+                    if result:
+                        st.success(f"Фильм добавлен: {status}")
+                    else:
+                        st.info(f"Статус обновлён: {status}")
+                else:
+                    st.warning("Выберите статус.")
+        else:
+            st.info("🔒 Войдите в аккаунт, чтобы добавить фильм в список.")
 
     # Секция комментариев
     st.divider()

@@ -1,6 +1,7 @@
 import streamlit as st
 from assets.styles import apply_styles  
-from backend.main1 import get_user_profile,change_user_avatar       
+from backend.main1 import get_user_profile, change_user_avatar, add_movie 
+from backend.db import get_connection 
 
 if "user" not in st.session_state:
     st.warning("Сначала войдите!")
@@ -33,10 +34,8 @@ if user_info:
                 st.warning("Введите URL аватара.")
 
     with col_info:
-        # Имя пользователя в стиле заголовка Details
         st.title(f"Профиль: {user_info['username']}")
         
-        # Плашка с информацией (аналог даты в Details)
         st.markdown(f"""
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                 <span style="background: #1e223b; padding: 5px 15px; border-radius: 20px; color: #e2e8f0;">🆔 ID: {user_info['id']}</span>
@@ -57,7 +56,6 @@ if user_info:
     with tab_seen:
         if user_info['seen']:
             for film in user_info['seen']:
-                # Используем markdown для создания красивых карточек в списке
                 st.markdown(f"**{film['title']}**")
         else:
             st.info("Вы еще не отметили ни одного просмотренного фильма.")
@@ -69,7 +67,21 @@ if user_info:
         else:
             st.info("Ваш список 'Запланировано' пока пуст.")
 
-else:
-    st.error("Не удалось загрузить данные профиля.")
-    if st.button("Вернуться на главную"):
-        st.switch_page("pages/01_Home.py")
+    # --- ADD ADMIN MOVIE BLOCK ---
+    if user_info['username'].lower() == "admin":
+        st.divider()
+        st.subheader("Добавление нового фильма")
+
+        title = st.text_input("Название фильма", key="admin_title")
+        overview = st.text_area("Описание фильма", key="admin_overview")
+        year = st.number_input("Год выпуска", min_value=1900, max_value=2100, key="admin_year")
+        genres = st.text_input("Жанр", key="genres")
+        poster = st.text_input("Ссылка на постер", key="admin_poster")
+        if st.button("Добавить фильм", key="admin_add_movie"):
+            conn = get_connection()
+            result = add_movie(conn, title, overview, year, poster, genres)
+            if "error" in result:
+                st.warning(result["error"])
+            else:
+                st.success(f"Фильм добавлен! ID: {result['movie_id']}")
+                st.json(result)

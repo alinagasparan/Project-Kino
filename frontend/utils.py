@@ -11,7 +11,7 @@ def show_mascot():
         img_data = base64.b64encode(f.read()).decode()
     
     st.markdown(f"""
-        <div class="mascot-container">
+        <div class="mascot-container" onclick="window.location.href='?page=assistant'">
             <img src="data:image/png;base64,{img_data}" width="100">
             <p style="
                 color: white;
@@ -24,3 +24,7 @@ def show_mascot():
             ">Привет! Помочь?</p>
         </div>
     """, unsafe_allow_html=True)
+
+    # Невидимая кнопка для перехода
+    if st.button("🐱", key="mascot_btn"):
+        st.switch_page("pages/03_Assistant.py")

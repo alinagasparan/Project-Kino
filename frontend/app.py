@@ -59,7 +59,7 @@ with st.container(key="navbar"):
 
     with col_search:
         search_query = st.text_input(
-            "",
+            "Поиск",
             placeholder="Найти фильм...",
             label_visibility="collapsed",
             key="search_input"

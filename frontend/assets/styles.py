@@ -5,6 +5,7 @@ def apply_styles():
     
     style_html = """
     <style>
+        
         /* Скрываем сайдбар */
         [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {
             display: none !important;
@@ -117,11 +118,26 @@ def apply_styles():
             left: 10px;
             z-index: 9999;
             cursor: pointer;
-            transition: transform 0.3s ease;
+            animation: mascot-idle 4s ease-in-out infinite;
         }
 
-        .mascot-container:hover {
-            transform: scale(1.1);
+        @keyframes mascot-idle {
+            0%   { transform: translateY(0px); }
+            50%  { transform: translateY(-3px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* Кнопка маскота прозрачная поверх картинки */
+        .st-key-mascot_btn button {
+            position: fixed !important;
+            bottom: 0px !important;
+            left: 10px !important;
+            z-index: 10000 !important;
+            width: 110px !important;
+            height: 170px !important;
+            opacity: 0 !important;
+            cursor: pointer !important;
+            background: transparent !important;
         }
 
         /* Вход рег */
@@ -370,13 +386,41 @@ def filter_panel():
             <span style="color:#ffffff; font-weight:500; font-size:14px; letter-spacing:1px;">ЖАНР</span>
         </div>
     """, unsafe_allow_html=True)
-    
-    fantastika = st.checkbox("Фантастика")
-    boevik = st.checkbox("Боевик")
-    comedy = st.checkbox("Комедия")
-    drama = st.checkbox("Драма")
-    horror = st.checkbox("Ужасы")
-    mult = st.checkbox("Мультфильмы")
+
+    genre_map = {
+        "Документальный":   "Documentary",
+        "Драма":            "Drama",
+        "Фэнтези":          "Fantasy",
+        "Семейный":         "Family",
+        "Мелодрама":        "Romance",
+        "Мистика":          "Mystery",
+        "История":          "History",
+        "Вестерн":          "Western",
+        "Война":            "War",
+        "Триллер":          "Thriller",
+        "Приключения":      "Adventure",
+        "Музыка":           "Music",
+        "Криминал":         "Crime",
+        "Фантастика":       "Science Fiction",
+        "Анимация":         "Animation",
+        "Ужасы":            "Horror",
+        "Комедия":          "Comedy",
+        "Боевик":           "Action",
+        "Супергерои":       "Superheroes in action-packed battles with villains",
+        "Зомби":            "Survival horror and zombie carnage",
+        "Вампиры":          "Bloody vampire horror",
+        "Sci-Fi ужасы":     "Sci-fi horror",
+        "Психологический":  "Twisted dark psychological thriller",
+        "Космос":           "Imaginative space odysseys and alien encounters",
+        "Монстры":          "Monsters",
+        "Гор/слэшер":       "and slasher horror",
+        "ТВ фильм":         "TV Movie",
+    }
+
+    selected_genres = []
+    for ru_name, en_name in genre_map.items():
+        if st.checkbox(ru_name, key=f"genre_{en_name}"):
+            selected_genres.append(en_name)
 
     st.markdown("""
         <div style="background:#242330; padding:10px 16px; margin-top:16px; margin-bottom: 5px;">
@@ -398,14 +442,11 @@ def filter_panel():
     
     sort_by = st.radio(
         label="",
-        options=["По рейтингу", "По популярности", "По алфавиту", "По дате выхода"],
+        options=["По алфавиту", "По дате выхода"],
         label_visibility="collapsed"
     )
 
     film_types = [t for t, v in [("Фильм", film), ("TV Сериал", serial)] if v]
-    genres = [g for g, v in [
-        ("Фантастика", fantastika), ("Боевик", boevik), ("Комедия", comedy),
-        ("Драма", drama), ("Ужасы", horror), ("Мультфильмы", mult)
-    ] if v]
+    genres = selected_genres
 
-    return film_types, genres, sort_by
+    return film_types, genres, sort_by, selected_year

@@ -1,32 +1,78 @@
 import streamlit as st
-from assets.styles import apply_styles          
+from assets.styles import apply_styles
+import backend.main1 as logic  
 
-# Окно помощника (работа с ML)
+st.set_page_config(page_title="Cinemind Assistant", layout="wide", page_icon="🐱")
 
-st.set_page_config(page_title="Assistant", layout="wide")
+apply_styles()
 
-st.title("🤖 Твой кино-бро")
-st.caption("Помощник Cinemind на связи. Готов обсудить кино!")
+st.title("🐱 Твой Кино-Кот")
 
-# Инициализация истории чата в браузере пользователя
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Привет! Я твой персональный Кино-кот помощник. Какой жанр сегодня в приоритете?"}
+# Если пользователь не вошел
+if not st.session_state.get("is_logged_in"):
+    st.warning("Мяу! 🐾 Чтобы поболтать с Кино-котом, нужно показать лапки (войти в аккаунт).")
+    if st.button("Перейти к авторизации"):
+        st.switch_page("pages/06_Auth.py") 
+    st.stop()
+
+current_user = st.session_state.user
+user_id = current_user['id']
+username = current_user['username']
+
+st.caption(f"Мяу, {username}! Помощник Cinemind на связи. Разваливайся поудобнее, обсудим кино!")
+
+# Создаем уникальный ключ для истории текущего пользователя
+history_key = f"messages_{user_id}"
+
+if history_key not in st.session_state:
+    st.session_state[history_key] = [
+        {"role": "assistant", "content": f"Мяу, {username}! Я твой персональный Кино-кот. Расскажи, о чем должен быть фильм, а я выберу лапкой что-нибудь классное! 🐾"}
     ]
 
-# Отрисовка всех сообщений, которые хранятся в текущей сессии
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+# Отрисовка истории сообщений текущего пользователя
+for message in st.session_state[history_key]:
+    with st.chat_message(message["role"], avatar="🐱" if message["role"] == "assistant" else "👤"):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Напиши свои предпочтения..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+# Обработка ввода пользователя
+if prompt := st.chat_input("Напиши свои предпочтения (например, 'хочу кино про шпионов')..."):
+    # Добавляем сообщение пользователя в его личную историю
+    st.session_state[history_key].append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    response = "Твой запрос принят! Как только мой бэкенд-мозг допилят, я проанализирую это и выдам идеальный фильм. 🍿"
+    # Получаем ответ от ML-модели
+    with st.chat_message("assistant", avatar="🐱"):
+        with st.spinner("Кино-кот шуршит в коробках с фильмами... 🐾"):
+            try:
+                results = logic.chat_with_ml(prompt)
+            except Exception as e:
+                results = [{"error": f"Ошибка системы: {str(e)}"}]
+
+            # Логика формирования ответа
+            if not results:
+                response = "Хм, в моих мисках пусто — ничего не нашлось. Попробуй уточнить запрос, мяу! 🐈‍⬛"
+            
+            elif isinstance(results, list) and len(results) > 0 and "error" in results[0]:
+                error_msg = results[0]["error"]
+                response = f"Ой, у котика хвост запутался... Ошибка: `{error_msg}` 🙀"
+            
+            else:
+                response = "Смотри, какую годноту я выудил для тебя:\n\n"
+                for film in results:
+                    title = film.get("title", "Без названия")
+                    year = film.get("year", "н/д")
+                    rating = film.get("rating", "—")
+                    genre = film.get("genre", "не указан")
+                    overview = film.get("overview") or "Описание где-то потерялось..."
+                    
+                    response += f"🎬 **{title}** ({year})\n"
+                    response += f"⭐ Рейтинг: {rating} | 🎭 Жанр: {genre}\n"
+                    response += f"📝 {overview[:200]}...\n\n"
+                
+                response += "Что-нибудь из этого заставляет тебя мурчать? 🐈"
+
+            st.markdown(response)
     
-    with st.chat_message("assistant"):
-        st.markdown(response)
-    
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # Сохраняем ответ ассистента в личную историю пользователя
+    st.session_state[history_key].append({"role": "assistant", "content": response})
