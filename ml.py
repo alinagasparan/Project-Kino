@@ -13,15 +13,12 @@ from pathlib import Path
 
 # Настройка NLTK для избежания ошибок
 def setup_nltk():
-    """Настройка NLTK с правильными путями"""
     try:
         # Создаем папку для данных NLTK в текущей директории
         nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
         if not os.path.exists(nltk_data_dir):
             os.makedirs(nltk_data_dir)
         nltk.data.path.append(nltk_data_dir)
-        
-        # Скачиваем stopwords с подавлением вывода
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
         return set(stopwords.words('english'))
     except Exception as e:
@@ -36,9 +33,7 @@ except:
 
 # Инициализирует Sentence Transformer модель (используем более легкую модель)
 def initialize_model():
-    """Инициализация модели с обработкой ошибок"""
     try:
-        # Используем более легкую модель для уменьшения времени загрузки
         return SentenceTransformer('all-MiniLM-L6-v2')
     except Exception as e:
         print(f"Ошибка загрузки модели: {e}")
@@ -66,7 +61,7 @@ def keyword_mask(text, keywords):
     if not keywords:
         return True
     text = text.lower()
-    return any(k in text for k in keywords)  # Изменено на any для лучшего поиска
+    return any(k in text for k in keywords)  
 
 # Функция извлечения жанров из списка
 def extract_genres(query, all_genres):
@@ -74,22 +69,32 @@ def extract_genres(query, all_genres):
         return []
     
     query_lower = query.lower()
+    query_words = [w for w in query_lower.split() if len(w) > 2]  # только слова длиннее 2 букв
     matched = []
     
     for genre in all_genres:
         genre_lower = genre.lower()
-        # Проверяем вхождение жанра в запрос
+        
         if genre_lower in query_lower:
             matched.append(genre)
-        # Проверяем отдельные слова
-        elif any(word in genre_lower for word in query_lower.split() if len(word) > 3):
+            continue
+        
+        if query_lower in genre_lower:
             matched.append(genre)
+            continue
+        
+        for q_word in query_words:
+            if q_word in genre_lower.split():
+                matched.append(genre)
+                break
+            elif q_word in genre_lower:
+                matched.append(genre)
+                break
     
     return list(set(matched))
 
 # Загрузка файлов с правильной обработкой пути
 def download_csv():
-    """Загрузка CSV файла с поиском в разных местах"""
     possible_paths = [
         './movies_posters.csv',
         './data/movies_posters.csv',
@@ -102,7 +107,6 @@ def download_csv():
         if os.path.exists(path):
             try:
                 df = pd.read_csv(path)
-                # Проверяем наличие нужных колонок
                 if 'synopsis' not in df.columns and 'Overview' in df.columns:
                     df['synopsis'] = df['Overview']
                 df = df.dropna(subset=['synopsis'])
@@ -130,7 +134,7 @@ def prepare_genre(df):
     return df, set()
 
 def save_all(df, movie_embeddings, kmeans, filename='movie_data.pkl'):
-    """Сохранение данных с проверкой"""
+   
     try:
         with open(filename, 'wb') as f:
             pickle.dump({
@@ -143,7 +147,6 @@ def save_all(df, movie_embeddings, kmeans, filename='movie_data.pkl'):
         print(f"Ошибка сохранения: {e}")
 
 def load_all(filename='movie_data.pkl'):
-    """Загрузка данных с проверкой"""
     if os.path.exists(filename):
         try:
             with open(filename, 'rb') as f:
@@ -154,13 +157,12 @@ def load_all(filename='movie_data.pkl'):
     return None, None, None
 
 def create_movie_embeddings(df, model):
-    """Создание эмбеддингов с обработкой ошибок"""
     try:
         text_column = 'synopsis' if 'synopsis' in df.columns else 'Overview'
         movie_embeddings = model.encode(
             df[text_column].tolist(), 
-            show_progress_bar=False,  # Отключаем прогресс-бар для Streamlit
-            batch_size=32,  # Уменьшаем batch size
+            show_progress_bar=False,  
+            batch_size=32, 
             convert_to_numpy=True
         )
         return movie_embeddings
@@ -170,8 +172,7 @@ def create_movie_embeddings(df, model):
 
 # Функция создания кластеров
 def perform_clustering(movie_embeddings):
-    """Кластеризация с обработкой ошибок"""
-    k = min(50, len(movie_embeddings) // 10)  # Адаптивное количество кластеров
+    k = min(50, len(movie_embeddings) // 10) 
     if k < 2:
         k = 2
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -237,7 +238,7 @@ def calculate_rating_score(rating_str):
         match = re.search(r'(\d+\.?\d*)', str(rating_str))
         if match:
             rating = float(match.group(1))
-            return min(1.0, rating / 10.0)  # Нормализуем к 10-балльной шкале
+            return min(1.0, rating / 10.0)  
     except:
         pass
     return 0
@@ -267,7 +268,6 @@ def rank_movies(df, combined_indices, scores, query_genres, top_n=50):
     return sorted(final_results, key=lambda x: x[1], reverse=True)
 
 def train_model():
-    """Обучение модели с обработкой ошибок"""
     print("Загрузка данных...")
     df = download_csv()
     
@@ -283,7 +283,6 @@ def train_model():
     print("Кластеризация...")
     kmeans = perform_clustering(movie_embeddings)
     
-    # Добавляем кластеры в DataFrame
     df['cluster'] = kmeans.labels_
     
     print("Сохранение обученной модели...")
@@ -301,10 +300,8 @@ centroids = None
 stop_phrases = None
 
 def initialize_system():
-    """Инициализация всей системы"""
     global df, movie_embeddings, kmeans, all_genres, model, centroids, stop_phrases
     
-    # Загружаем или обучаем модель
     print("Проверка наличия сохраненной модели...")
     df, movie_embeddings, kmeans = load_all()
     
@@ -315,23 +312,17 @@ def initialize_system():
         print("Модель загружена. Подготовка к использованию...")
         df, all_genres = prepare_genre(df)
         model = initialize_model()
-        # Убеждаемся, что кластеры есть в df
         if 'cluster' not in df.columns and kmeans is not None:
             df['cluster'] = kmeans.labels_
     
-    # Получаем центроиды кластеров
     if kmeans is not None:
         centroids = kmeans.cluster_centers_
     stop_phrases = get_stop_phrases()
-    
     print("Система готова к работе!")
 
-# Функция для поиска фильмов
 def search_movies(query, top_k=10):
-    """Поиск фильмов с обработкой ошибок"""
     global df, movie_embeddings, kmeans, all_genres, model, centroids, stop_phrases
     
-    # Проверяем инициализацию
     if df is None:
         initialize_system()
     
@@ -372,7 +363,6 @@ def search_movies(query, top_k=10):
         for rank, (idx, score) in enumerate(ranked_results, 1):
             row = df.iloc[idx]
             
-            # Форматирование рейтинга для отображения
             rating_value = row.get('rating', 'N/A')
             if pd.notna(rating_value) and rating_value != 'N/A':
                 try:
@@ -382,7 +372,6 @@ def search_movies(query, top_k=10):
                 except:
                     pass
             
-            # Получаем правильные названия колонок
             title = row.get('title', row.get('Series_Title', 'Unknown'))
             year = row.get('year', row.get('Released_Year', 'N/A'))
             genres = row.get('genres', row.get('Genre', 'N/A'))
@@ -410,6 +399,5 @@ def search_movies(query, top_k=10):
         print(f"Ошибка при поиске: {e}")
         return []
 
-# Инициализируем систему при загрузке модуля
 initialize_system()
 
