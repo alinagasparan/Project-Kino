@@ -19,7 +19,7 @@ found_films = get_films_by_search(movie_title)
 movie_data = next((f for f in found_films if f["id"] == movie_id), None)
 
 if movie_data:
-    if st.button("← Назад к каталогу"):
+    if st.button("← Главное меню"):
         st.switch_page("pages/01_Home.py")
 
     col_img, col_info = st.columns([1, 2], gap="large")

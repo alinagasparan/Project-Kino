@@ -1,7 +1,6 @@
 import streamlit as st
 from assets.styles import apply_styles  
 from backend.main1 import get_user_profile, change_user_avatar, add_movie 
-from backend.db import get_connection 
 
 if "user" not in st.session_state:
     st.warning("Сначала войдите!")
@@ -76,11 +75,12 @@ if user_info:
         title = st.text_input("Название фильма", key="admin_title")
         overview = st.text_area("Описание фильма", key="admin_overview")
         year = st.number_input("Год выпуска", min_value=1900, max_value=2100, key="admin_year")
-        genres = st.text_input("Жанр", key="genres")
+        genres_input = st.text_input("Жанры (через запятую)", key="genres")
         poster = st.text_input("Ссылка на постер", key="admin_poster")
+
         if st.button("Добавить фильм", key="admin_add_movie"):
-            conn = get_connection()
-            result = add_movie(conn, title, overview, year, poster, genres)
+            result = add_movie(title, overview, year, poster, genres_input)
+            
             if "error" in result:
                 st.warning(result["error"])
             else:
