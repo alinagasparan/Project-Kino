@@ -62,14 +62,6 @@ def apply_styles():
             transform: scale(1.02);
         }
 
-        /* Изменение цветов предупреждения*/
-        div[data-testid="stAlert"] {
-            background-color: rgba(180, 0, 60, 0.35) !important;
-            border-radius: 8px !important;
-            color: white !important;
-            backdrop-filter: blur(4px);
-        }
-
         /* Карточки */
         /* Стилизуем сам контейнер карточки (находим по префиксу ключа) */
         div[class*="st-key-movie_card_"] {
