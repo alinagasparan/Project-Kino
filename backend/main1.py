@@ -1,37 +1,40 @@
 import sys
 import os
+from psycopg2.extras import RealDictCursor
 sys.path.append(os.path.dirname(__file__))
+
 import ml.ml
-import database.db
+from database import db
+
 def get_films_by_search(text):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         if not text or text.strip() == "":
             return []
 
-        films = database.db.search_film_by_name(conn, text)
+        films = db.search_film_by_name(conn, text)
 
         result = []
         for film in films:
-            info = database.db.get_film_info(conn, film["movie_id"])
+            info = db.get_film_info(conn, film["movie_id"])
 
             result.append({
                 "id": film["movie_id"],
                 "title": film["title"],
                 "poster_link": info["poster_link"] if info else "",
                 "description": info["description"] if info else "",
-                "year": info["release_year"] if info else None
+                "year": info["release_year"] if info else None,
+                "genres": info["categories"] if info else ""
             })
 
         return result
 
     finally:
         conn.close()
-
 def register_user(user_name, user_password, avatar_url=None):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        user_id = database.db.user_register(conn, user_name, user_password, avatar_url)
+        user_id = db.user_register(conn, user_name, user_password, avatar_url)
 
         return {
             "id": user_id,
@@ -42,9 +45,9 @@ def register_user(user_name, user_password, avatar_url=None):
         conn.close()
 
 def check_user_login(username, password):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        user_id = database.db.user_login(conn, username, password)
+        user_id = db.user_login(conn, username, password)
         if user_id:
             return {
                 "username": username,
@@ -56,20 +59,20 @@ def check_user_login(username, password):
         conn.close()
 
 def get_films_by_genre(genre_name):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        return database.db.search_film_with_filters()
+        return db.search_film_with_filters()
     finally:
         conn.close()
 
 def get_films_with_filters(title=None, genre=None, actor=None, year=None, sort_by=None, sort_order="asc"):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        return database.db.search_film_with_filters(conn, title=title, genre=genre, actor=actor, year=year, sort_by=sort_by, sort_order=sort_order)
+        return db.search_film_with_filters(conn, title=title, genre=genre, actor=actor, year=year, sort_by=sort_by, sort_order=sort_order)
     finally:
         conn.close()
 def get_user_profile(user_id):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -80,8 +83,8 @@ def get_user_profile(user_id):
 
         if not user:
             return None
-        seen_films = database.db.get_films_from_users_list(conn, user_id, 3)   # просмотрено
-        planned_films = database.db.get_films_from_users_list(conn, user_id, 1)  # запланировано
+        seen_films = db.get_films_from_users_list(conn, user_id, 3)   # просмотрено
+        planned_films = db.get_films_from_users_list(conn, user_id, 1)  # запланировано
 
         return {
             "id": user[0],
@@ -95,7 +98,7 @@ def get_user_profile(user_id):
     finally:
         conn.close()
 def change_user_avatar(user_id, avatar_url):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         with conn.cursor() as cur:
             cur.execute("""
@@ -104,16 +107,16 @@ def change_user_avatar(user_id, avatar_url):
                 WHERE id = %s;
             """, (avatar_url, user_id))
             conn.commit()
-        user_profile = database.db.get_users_profile(conn, user_id)
+        user_profile = db.get_users_profile(conn, user_id)
         if user_profile:
             return user_profile['avatar_url']
         return None
     finally:
         conn.close()
 def update_user_profile(user_id, username=None, password=None, avatar=None):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        user = database.db.change_users_profile(
+        user = db.change_users_profile(
             conn,
             user_id,
             user_name=username,
@@ -133,12 +136,12 @@ def update_user_profile(user_id, username=None, password=None, avatar=None):
     finally:
         conn.close()
 def get_all_movies_with_details():
-    conn = database.db.get_connection()
-    films_basic = database.db.get_all_films(conn)
+    conn = db.get_connection()
+    films_basic = db.get_all_films(conn)
     all_movies = []
 
 
-    with conn.cursor(cursor_factory=database.db.RealDictCursor) as cur:
+    with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
         for film in films_basic:
             movie_id = film['movie_id']
             query = """SELECT movie_id, title, poster_link, release_year
@@ -152,7 +155,7 @@ def get_all_movies_with_details():
     return all_movies
 
 def add_movie_to_user_list(user_id, movie_id, status):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         status_map = {
             "seen": 3,
@@ -163,7 +166,7 @@ def add_movie_to_user_list(user_id, movie_id, status):
         if status_id is None:
             raise ValueError("Неверный статус")
 
-        return database.db.add_film_to_list(conn, user_id, movie_id, status_id)
+        return db.add_film_to_list(conn, user_id, movie_id, status_id)
 
     finally:
         conn.close()
@@ -192,7 +195,7 @@ def chat_with_ml(message):
         return [{"error": str(e)}]
 
 #фильмы для премьеры
-def get_latest_movies(limit=4):
+def get_latest_movies(limit=5):
     # Вместо проблемной db.search_film_with_filters 
     # используем вашу же функцию с правильной сортировкой
     films = get_all_movies_newest_first() 
@@ -209,79 +212,84 @@ def get_latest_movies(limit=4):
     return result
 
 
-from psycopg2.extras import RealDictCursor
+def add_movie(title, overview, release_year, poster_link, genres=None):
+    conn = db.get_connection()
+    
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            
+            # проверка на дубликат
+            cur.execute(
+                "SELECT movie_id FROM public.Movies WHERE LOWER(title) = LOWER(%s);",
+                (title,)
+            )
+            existing = cur.fetchone()
 
+            if existing:
+                return {
+                    "error": "Фильм уже существует",
+                    "movie_id": existing["movie_id"]
+                }
 
-def add_movie(conn, title, overview, release_year, poster_link, genres=None):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        
-        # проверка на дубликат
-        cur.execute(
-            "SELECT movie_id FROM public.Movies WHERE LOWER(title) = LOWER(%s);",
-            (title,)
-        )
-        existing = cur.fetchone()
+            # добавление фильма
+            cur.execute("""
+                INSERT INTO public.Movies (title, overview, release_year, poster_link)
+                VALUES (%s, %s, %s, %s)
+                RETURNING movie_id, title, poster_link, release_year;
+            """, (title, overview, release_year, poster_link))
 
-        if existing:
-            return {
-                "error": "Фильм уже существует",
-                "movie_id": existing["movie_id"]
-            }
+            movie = cur.fetchone()
+            movie_id = movie["movie_id"]
 
-        # добавление фильма
-        cur.execute("""
-            INSERT INTO public.Movies (title, overview, release_year, poster_link)
-            VALUES (%s, %s, %s, %s)
-            RETURNING movie_id, title, poster_link, release_year;
-        """, (title, overview, release_year, poster_link))
-
-        movie = cur.fetchone()
-        movie_id = movie["movie_id"]
-
-        # --- добавление жанров ---
-        if genres:
-            for genre in genres:
-                # создаем жанр если его нет
-                cur.execute("""
-                    INSERT INTO public.genres (genre_name)
-                    VALUES (%s)
-                    ON CONFLICT (genre_name) DO NOTHING
-                    RETURNING genre_id;
-                """, (genre,))
-                
-                result = cur.fetchone()
-
-                if result:
-                    genre_id = result["genre_id"]
-                else:
+            # --- добавление жанров ---
+            if genres:
+                for genre in genres:
+                    # создаем жанр если его нет
                     cur.execute("""
-                        SELECT genre_id 
-                        FROM public.genres 
-                        WHERE genre_name = %s;
+                        INSERT INTO public.genres (genre_name)
+                        VALUES (%s)
+                        ON CONFLICT (genre_name) DO NOTHING
+                        RETURNING genre_id;
                     """, (genre,))
-                    genre_id = cur.fetchone()["genre_id"]
+                    
+                    result = cur.fetchone()
 
-                # связываем фильм и жанр
-                cur.execute("""
-                    INSERT INTO public.movie_genres (movie_id, genre_id)
-                    VALUES (%s, %s)
-                    ON CONFLICT DO NOTHING;
-                """, (movie_id, genre_id))
+                    if result:
+                        genre_id = result["genre_id"]
+                    else:
+                        cur.execute("""
+                            SELECT genre_id 
+                            FROM public.genres 
+                            WHERE genre_name = %s;
+                        """, (genre,))
+                        genre_id = cur.fetchone()["genre_id"]
 
-        conn.commit()
-        return movie
+                    # связываем фильм и жанр
+                    cur.execute("""
+                        INSERT INTO public.movie_genres (movie_id, genre_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT DO NOTHING;
+                    """, (movie_id, genre_id))
+
+            conn.commit()
+            return movie
+    except Exception as e:
+        conn.rollback()
+        return {"error": f"Ошибка базы данных: {str(e)}"}
+    finally:
+        conn.close()
 
 #    Возвращает список фильмов по одному жанру для фронта
  #   в формате: id, title, poster, year
 def get_movies_by_genre_front(genre_name):
 
 
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
-        films = database.db.search_film_with_filters(conn, genre=genre_name)
+        films = db.search_film_with_filters(conn, genre=genre_name)
         result = []
         for film in films:
-            info = database.db.get_film_info(conn, film["movie_id"])
+            info = db.get_film_info(conn, film["movie_id"])
             result.append({
                 "id": film["movie_id"],
                 "title": film["title"],
@@ -293,7 +301,7 @@ def get_movies_by_genre_front(genre_name):
 ''' Возвращает все фильмы, отсортированные по алфавиту.
     ascending=True -> A→Z, ascending=False -> Z→A '''
 def get_all_movies_sorted_by_title(ascending=True):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         order_direction = "ASC" if ascending else "DESC"
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
@@ -310,7 +318,7 @@ def get_all_movies_sorted_by_title(ascending=True):
 
 def get_all_movies_newest_first():
 
-    conn = database.db.get_connection()
+    conn = db.get_connection()
     try:
         with conn.cursor(cursor_factory=db.RealDictCursor) as cur:
             cur.execute("""
@@ -322,27 +330,32 @@ def get_all_movies_newest_first():
     finally:
         conn.close()
 #фильп по году
-def get_films_by_year(conn, year):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        query = """
-        SELECT 
-            m.movie_id,
-            m.title,
-            m.release_year,
-            m.poster_link
-        FROM public.Movies m
-        WHERE m.release_year = %s
-        ORDER BY m.title;
-        """
-        cur.execute(query, (year,))
-        return cur.fetchall()
+def get_films_by_year(year):
+    conn = db.get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = """
+            SELECT 
+                m.movie_id,
+                m.title,
+                m.release_year,
+                m.poster_link
+            FROM public.Movies m
+            WHERE m.release_year = %s
+            ORDER BY m.title;
+            """
+            cur.execute(query, (year,))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 #добавление комментов
 
 def add_comment(user_id, movie_id, text):
-    conn = database.db.get_connection()
+    conn = db.get_connection()
 
     try:
-        comment = database.db.write_comment_on_film(conn, user_id, movie_id, text)
+        comment = db.write_comment_on_film(conn, user_id, movie_id, text)
 
         return {
             "id": comment["id"],
@@ -354,6 +367,26 @@ def add_comment(user_id, movie_id, text):
 
     except Exception as e:
         return {"error": str(e)}
+
+    finally:
+        conn.close()
+
+
+def get_comments(movie_id):
+    conn = db.get_connection()
+
+    try:
+        comments = db.get_comments_to_film(conn, movie_id)
+
+        result = []
+        for c in comments:
+            result.append({
+                "id": c["id"],
+                "text": c["comm"],
+                "user_name": c["user_name"]
+            })
+
+        return result
 
     finally:
         conn.close()
