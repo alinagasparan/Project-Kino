@@ -62,6 +62,14 @@ def apply_styles():
             transform: scale(1.02);
         }
 
+        /* Изменение цветов предупреждения*/
+        div[data-testid="stAlert"] {
+            background-color: rgba(180, 0, 60, 0.35) !important;
+            border-radius: 8px !important;
+            color: white !important;
+            backdrop-filter: blur(4px);
+        }
+
         /* Карточки */
         /* Стилизуем сам контейнер карточки (находим по префиксу ключа) */
         div[class*="st-key-movie_card_"] {
@@ -389,6 +397,99 @@ def search_style():
             position: relative;
         }
         
+    </style>
+    """
+    st.markdown(style_html, unsafe_allow_html=True)
+
+def comments_style():
+    style_html = """
+    <style>
+    .comment-card {
+            background: linear-gradient(145deg, #121420, #181b2d) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 16px !important;
+            padding: 20px !important;
+            margin-bottom: 16px !important;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Декоративная неоновая линия сверху карточки */
+        .comment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #610f2e, #ff4d8d, transparent);
+        }
+
+        .comment-card:hover {
+            transform: translateY(-3px) !important;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3) !important;
+            border-color: rgba(162, 14, 71, 0.4) !important;
+        }
+
+        .comment-header-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        /* Круглая аватарка с градиентом */
+        .comment-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #610f2e 0%, #a20e47 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #ffffff;
+            font-size: 16px;
+            box-shadow: 0 2px 8px rgba(162, 14, 71, 0.4);
+            flex-shrink: 0;
+        }
+
+        .comment-author-name {
+            color: #f8fafc !important;
+            font-weight: 700 !important;
+            font-size: 16px !important;
+            letter-spacing: 0.3px;
+        }
+
+        .comment-text-content {
+            color: #cbd5e1 !important;
+            font-size: 15px !important;
+            line-height: 1.6 !important;
+            margin-left: 50px;
+        }
+
+        /* Название фильма */
+        .movie-main-title {
+            font-size: 3.5rem !important;
+            font-weight: 600 !important;
+            line-height: 1.1 !important;
+            margin-bottom: 10px !important;
+            background: linear-gradient(90deg, #ffffff, #a20e47) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            text-shadow: 0 10px 20px rgba(162, 14, 71, 0.2) !important;
+            letter-spacing: -1px !important;
+        }
+
+        .title-underline {
+            width: 700px;
+            height: 4px;
+            background: #a20e47;
+            border-radius: 2px;
+            margin-bottom: 25px;
+        }
     </style>
     """
     st.markdown(style_html, unsafe_allow_html=True)

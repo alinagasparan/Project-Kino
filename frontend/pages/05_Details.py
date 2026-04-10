@@ -1,9 +1,10 @@
 import streamlit as st
-from assets.styles import apply_styles
-from backend.main1 import get_films_by_search, add_movie_to_user_list
+from assets.styles import apply_styles, comments_style
+from backend.main1 import get_films_by_search, add_movie_to_user_list, get_comments, add_comment
 
 st.set_page_config(page_title="Детали фильма", layout="wide")
 apply_styles()
+comments_style()
 
 movie_title = st.session_state.get("selected_movie")
 movie_id = st.session_state.get("selected_movie_id")
@@ -32,11 +33,28 @@ if movie_data:
         st.image(poster_url, use_container_width=True)
 
     with col_info:
-        st.title(movie_data['title'])
+        st.markdown(f"""
+            <h1 class="movie-main-title">{movie_data['title']}</h1>
+            <div class="title-underline"></div>
+        """, unsafe_allow_html=True)
+
+        genres_html = ""
+        raw_genres = movie_data.get('genres', [])
+        
+        if isinstance(raw_genres, str) and raw_genres:
+            genres_list = [g.strip() for g in raw_genres.split(',')]
+        elif isinstance(raw_genres, list):
+            genres_list = raw_genres
+        else:
+            genres_list = []
+
+        for genre in genres_list:
+            genres_html += f'<span style="background: #6f1638; padding: 5px 12px; border-radius: 15px; color: white; font-size: 0.8rem; margin-left: 8px; white-space: nowrap;">{genre}</span>'
 
         st.markdown(f"""
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <span style="background: #1e223b; padding: 5px 15px; border-radius: 20px; color: #e2e8f0;">📅 {movie_data['year']}</span>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 20px;">
+                <span style="background: #1e223b; padding: 5px 15px; border-radius: 20px; color: #e2e8f0; font-weight: bold;">📅 {movie_data['year']}</span>
+                {genres_html}
             </div>
         """, unsafe_allow_html=True)
 
@@ -80,13 +98,47 @@ if movie_data:
     # Секция комментариев
     st.divider()
     st.subheader("💬 Комментарии")
-    with st.container():
-        comment = st.text_area("Оставь свой отзыв:", placeholder="Напишите, что вы думаете о фильме...")
-        if st.button("Отправить"):
-            if comment:
-                st.success("Отзыв отправлен!")
-            else:
-                st.error("Текст комментария не может быть пустым.")
+    movie_comments = get_comments(movie_id)
+
+    if movie_comments:
+        for c in movie_comments:
+            user_name = c.get('user_name', 'Гость')
+            text = c.get('text', '')
+            # Берем первую букву для стильной аватарки
+            first_letter = user_name[0].upper() if user_name else "👤"
+
+            st.markdown(f"""
+                <div class="comment-card">
+                    <div class="comment-header-row">
+                        <div class="comment-avatar">{first_letter}</div>
+                        <div class="comment-author-name">{user_name}</div>
+                    </div>
+                    <div class="comment-text-content">{text}</div>
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Пока никто не оставил отзыв. Будьте первым!")
+
+    # Форма отправки (только для авторизованных)
+    if "user" in st.session_state and st.session_state.user:
+        st.write("---")
+        with st.container():
+            new_comm_text = st.text_area("Оставь свой отзыв:", placeholder="Напишите, что вы думаете о фильме...", key="details_comment_input")
+            
+            if st.button("Отправить", key="send_comment_btn"):
+                if new_comm_text.strip():
+                    res = add_comment(st.session_state.user["id"], movie_id, new_comm_text)
+                    
+                    if res and "error" not in res:
+                        st.success("Отзыв отправлен!")
+                        # Перезагружаем страницу, чтобы комментарий сразу появился в списке
+                        st.rerun()
+                    else:
+                        st.error(f"Ошибка при отправке: {res.get('error', 'Неизвестная ошибка')}")
+                else:
+                    st.error("Текст комментария не может быть пустым.")
+    else:
+        st.warning("🔒 Войдите в аккаунт, чтобы оставить комментарий.")
 
 else:
     st.error("К сожалению, информация о фильме не найдена.")
