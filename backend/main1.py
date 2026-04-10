@@ -4,7 +4,7 @@ from psycopg2.extras import RealDictCursor
 sys.path.append(os.path.dirname(__file__))
 
 import ml.ml
-from database import db
+from db import db
 
 def get_films_by_search(text):
     conn = db.get_connection()
