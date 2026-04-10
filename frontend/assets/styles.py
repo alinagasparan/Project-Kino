@@ -535,7 +535,7 @@ def filter_panel():
         </div>
     """, unsafe_allow_html=True)
     year_input = st.selectbox(
-        label="",
+        label="Выберите год",
         options=["Любой"] + list(range(2025, 1969, -1)),
         label_visibility="collapsed"
     )
@@ -548,7 +548,7 @@ def filter_panel():
     """, unsafe_allow_html=True)
     
     sort_by = st.radio(
-        label="",
+        label="Метод сортировки",
         options=["По умолчанию", "По алфавиту", "По дате выхода"], 
         index=0,
         label_visibility="collapsed"

@@ -35,7 +35,7 @@ def render_news(image_url, title, text):
     with st.container():
         col1, col2 = st.columns([1, 2.2])
         with col1:
-            st.image(image_url, use_container_width=True)
+            st.image(image_url, width="stretch")
         with col2:
             st.markdown(f'<div class="news-title">{title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="news-text">{text}</div>', unsafe_allow_html=True)
