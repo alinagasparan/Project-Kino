@@ -4,7 +4,7 @@ from psycopg2.extras import RealDictCursor
 sys.path.append(os.path.dirname(__file__))
 
 import ml.ml
-from database import db
+from db import db
 
 def get_films_by_search(text):
     conn = db.get_connection()
@@ -24,13 +24,14 @@ def get_films_by_search(text):
                 "poster_link": info["poster_link"] if info else "",
                 "description": info["description"] if info else "",
                 "year": info["release_year"] if info else None,
-                "genres": info["categories"] if info else ""
+                "genres": info["categories"] if info else ""   
             })
 
         return result
 
     finally:
         conn.close()
+
 def register_user(user_name, user_password, avatar_url=None):
     conn = db.get_connection()
     try:
@@ -195,7 +196,7 @@ def chat_with_ml(message):
         return [{"error": str(e)}]
 
 #фильмы для премьеры
-def get_latest_movies(limit=5):
+def get_latest_movies(limit=4):
     # Вместо проблемной db.search_film_with_filters 
     # используем вашу же функцию с правильной сортировкой
     films = get_all_movies_newest_first() 
@@ -216,9 +217,9 @@ def add_movie(title, overview, release_year, poster_link, genres=None):
     conn = db.get_connection()
     
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur: #
             
-            # проверка на дубликат
+            #Проверка на дубликат по названию
             cur.execute(
                 "SELECT movie_id FROM public.Movies WHERE LOWER(title) = LOWER(%s);",
                 (title,)
@@ -229,22 +230,27 @@ def add_movie(title, overview, release_year, poster_link, genres=None):
                 return {
                     "error": "Фильм уже существует",
                     "movie_id": existing["movie_id"]
-                }
+                } 
 
-            # добавление фильма
+            # Добавление самого фильма
             cur.execute("""
                 INSERT INTO public.Movies (title, overview, release_year, poster_link)
                 VALUES (%s, %s, %s, %s)
                 RETURNING movie_id, title, poster_link, release_year;
-            """, (title, overview, release_year, poster_link))
+            """, (title, overview, release_year, poster_link)) #
 
             movie = cur.fetchone()
             movie_id = movie["movie_id"]
 
-            # --- добавление жанров ---
+            # 3. Обработка жанров
+            # Если genres пришел как строка (например, "Драма, Боевик"), превращаем её в список
+            if isinstance(genres, str):
+                genres = [g.strip() for g in genres.split(",") if g.strip()] #
+
+            # Привязка жанров к фильму
             if genres:
                 for genre in genres:
-                    # создаем жанр если его нет
+                    # Создаем жанр в справочнике, если его еще нет
                     cur.execute("""
                         INSERT INTO public.genres (genre_name)
                         VALUES (%s)
@@ -257,6 +263,7 @@ def add_movie(title, overview, release_year, poster_link, genres=None):
                     if result:
                         genre_id = result["genre_id"]
                     else:
+                        # Если жанр уже был, получаем его ID
                         cur.execute("""
                             SELECT genre_id 
                             FROM public.genres 
@@ -264,7 +271,7 @@ def add_movie(title, overview, release_year, poster_link, genres=None):
                         """, (genre,))
                         genre_id = cur.fetchone()["genre_id"]
 
-                    # связываем фильм и жанр
+                    # Создаем связь в таблице movie_genres
                     cur.execute("""
                         INSERT INTO public.movie_genres (movie_id, genre_id)
                         VALUES (%s, %s)
@@ -273,6 +280,7 @@ def add_movie(title, overview, release_year, poster_link, genres=None):
 
             conn.commit()
             return movie
+            
     except Exception as e:
         conn.rollback()
         return {"error": f"Ошибка базы данных: {str(e)}"}
@@ -371,10 +379,9 @@ def add_comment(user_id, movie_id, text):
     finally:
         conn.close()
 
-
 def get_comments(movie_id):
     conn = db.get_connection()
-
+    
     try:
         comments = db.get_comments_to_film(conn, movie_id)
 
